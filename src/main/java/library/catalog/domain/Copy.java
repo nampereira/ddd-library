@@ -43,4 +43,8 @@ public class Copy {
     public void makeAvailable() {
         this.available = true;
     }
+
+    public boolean isAvailable() {
+        return available;
+    }
 }

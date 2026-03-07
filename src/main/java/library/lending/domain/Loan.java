@@ -3,8 +3,10 @@ package library.lending.domain;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
-import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Version;
 import org.springframework.data.domain.AbstractAggregateRoot;
 import org.springframework.util.Assert;
@@ -14,7 +16,11 @@ import java.time.LocalDateTime;
 
 @Entity
 public class Loan extends AbstractAggregateRoot<Loan> {
-    @EmbeddedId
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long pk;
+    @Embedded
+    @AttributeOverride(name = "id", column = @Column(name = "loan_id"))
     private LoanId loanId;
     @Embedded
     @AttributeOverride(name = "id", column = @Column(name = "copy_id"))

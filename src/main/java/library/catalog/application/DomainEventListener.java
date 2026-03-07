@@ -5,8 +5,8 @@ import library.catalog.domain.CopyId;
 import library.catalog.domain.CopyRepository;
 import library.lending.domain.LoanClosed;
 import library.lending.domain.LoanCreated;
-import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 public class DomainEventListener {
@@ -17,16 +17,16 @@ public class DomainEventListener {
         this.copyRepository = copyRepository;
     }
 
-    @ApplicationModuleListener
+    @TransactionalEventListener
     public void handle(LoanCreated event) {
-        Copy copy = copyRepository.findById(new CopyId(event.copyId().id())).orElseThrow();
+        Copy copy = copyRepository.findByCopyId(new CopyId(event.copyId().id())).orElseThrow();
         copy.makeUnavailable();
         copyRepository.save(copy);
     }
 
-    @ApplicationModuleListener
+    @TransactionalEventListener
     public void handle(LoanClosed event) {
-        Copy copy = copyRepository.findById(new CopyId(event.copyId().id())).orElseThrow();
+        Copy copy = copyRepository.findByCopyId(new CopyId(event.copyId().id())).orElseThrow();
         copy.makeAvailable();
         copyRepository.save(copy);
     }

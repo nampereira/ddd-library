@@ -52,7 +52,7 @@ class LoanTest {
 
         var loan = new Loan(copyId, userId, loanRepository);
 
-        assertThat(loan.domainEvents())
+        assertThat(loan.getDomainEvents())
                 .hasSize(1)
                 .first()
                 .isInstanceOf(LoanCreated.class);
@@ -65,7 +65,7 @@ class LoanTest {
 
         loan.returned();
 
-        assertThat(loan.domainEvents())
+        assertThat(loan.getDomainEvents())
                 .anyMatch(e -> e instanceof LoanClosed);
     }
 }

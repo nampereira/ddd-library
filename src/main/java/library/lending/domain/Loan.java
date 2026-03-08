@@ -50,6 +50,10 @@ public class Loan extends AbstractAggregateRoot<Loan> {
         this.registerEvent(new LoanCreated(this.copyId));
     }
 
+    public java.util.Collection<Object> getDomainEvents() {
+        return domainEvents();
+    }
+
     public void returned() {
         this.returnedAt = LocalDateTime.now();
         if (this.returnedAt.isAfter(expectedReturnDate.atStartOfDay())) {

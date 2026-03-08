@@ -24,7 +24,7 @@ public class Copy {
     private BarCode barCode;
     private boolean available;
 
-    Copy() {
+    protected Copy() {
     }
 
     public Copy(Isbn isbn, BarCode barCode) {

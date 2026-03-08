@@ -509,7 +509,8 @@ The `@TransactionalEventListener` annotation ensures the event handler runs in t
 - `createdAt` — when the loan was created
 - `expectedReturnDate` — 30 days after creation
 - `returnedAt` — when the copy was returned (null if still on loan)
-- A `version` field for optimistic locking
+- `activeCopyId` — holds the copy UUID while the loan is active, `NULL` after return (used for the uniqueness constraint that prevents double-booking)
+- A `version` field for optimistic locking on updates
 
 ### 8.2 Business Rules Enforced by the Aggregate
 
@@ -535,16 +536,25 @@ RentBookUseCase
     └── new Loan(copyId, userId, availabilityService) ← aggregate enforces the rule
 ```
 
-### 8.3 Optimistic Locking
+### 8.3 Concurrency Safety — Unique Constraint on Active Loans
 
-The `@Version` field prevents **lost updates** in concurrent scenarios. If two patrons try to borrow the same copy at exactly the same time:
+The system prevents double-booking by enforcing a database-level uniqueness constraint. `Loan` carries a nullable column `active_copy_id`:
 
-1. Both read the `Loan` count as 0 (available)
-2. Both try to save a new `Loan`
-3. The first save succeeds and increments the `version`
-4. The second save fails because the `version` it read is now stale
+- Set to the copy's UUID when the loan is created (copy is out)
+- Cleared to `NULL` when `returned()` is called
 
-This prevents double-booking without using database-level locks.
+A `UNIQUE` constraint on `active_copy_id` means only one row with any given UUID can exist at a time. Because SQL `UNIQUE` constraints ignore `NULL` values, returned loans (where `active_copy_id = NULL`) never conflict with each other.
+
+```
+T1: INSERT loan(active_copy_id = X) → OK
+T2: INSERT loan(active_copy_id = X) → constraint violation → 409 Conflict
+```
+
+The `@Version` field on `Loan` is still present for optimistic locking on **updates** (e.g., concurrent returns of the same loan), but it cannot prevent two concurrent *inserts* — that is the role of the unique constraint.
+
+`GlobalExceptionHandler` catches `DataIntegrityViolationException` and translates it to an HTTP **409 Conflict** response.
+
+> **Alternative (Option B):** Add `@Version` to `Copy` in the catalog context and flip an `available` flag atomically as part of rental. The `OptimisticLockingFailureException` thrown on the second concurrent write would serve the same purpose. This approach makes `Copy` the single source of truth for availability and avoids querying loan history, but it introduces a cross-bounded-context dependency from the lending service into the catalog repository.
 
 ### 8.4 Returning a Book — Walk-Through
 

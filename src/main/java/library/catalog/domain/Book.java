@@ -21,7 +21,7 @@ public class Book {
     @AttributeOverride(name = "value", column = @Column(name = "isbn", unique = true))
     private Isbn isbn;
 
-    Book() {
+    protected Book() {
     }
 
     public Book(String title, Isbn isbn) {

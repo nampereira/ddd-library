@@ -1,6 +1,7 @@
 package library.security.domain;
 
 import jakarta.persistence.*;
+import org.springframework.util.Assert;
 
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +31,9 @@ public class User {
     protected User() {}
 
     public User(String username, String password, Set<Role> roles) {
+        Assert.hasText(username, "username must not be blank");
+        Assert.hasText(password, "password must not be blank");
+        Assert.notNull(roles, "roles must not be null");
         this.username = username;
         this.password = password;
         this.roles = roles;

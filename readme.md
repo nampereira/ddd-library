@@ -86,7 +86,7 @@ In this project:
 - **`Book`** is an aggregate root. You cannot directly manipulate a `Copy` without going through business logic.
 - **`Loan`** is an aggregate root. It controls its own lifecycle (creation, return).
 
-**Why does this matter?** It ensures that business rules are enforced in one place. For example, a `Loan` can only be created if the copy is available — that check lives inside the `Loan` class itself, not scattered across the application.
+**Why does this matter?** It ensures that business rules are enforced in one place. For example, a `Loan` can only be created if the copy is available — that check is enforced at construction time, delegating the query to a `CopyAvailabilityService` so the aggregate stays free of infrastructure dependencies.
 
 ### 3.4 Value Objects
 
@@ -119,7 +119,29 @@ The **Lending** module fires these events. The **Catalog** module listens to the
 
 **Why is this useful?** Loose coupling. If you later add a notification module that emails patrons on loan creation, you simply add another listener for `LoanCreated` — no changes needed in the lending module.
 
-### 3.6 Repositories
+### 3.6 Domain Services
+
+A **Domain Service** is a stateless service that holds domain logic that doesn't naturally belong to a single entity or value object. It is expressed as an interface in the domain layer and implemented in the application or infrastructure layer.
+
+In this project:
+- `CopyAvailabilityService` — answers whether a specific copy is currently available for borrowing
+
+The `Loan` aggregate calls `CopyAvailabilityService.isAvailable(copyId)` during construction to enforce the invariant *"a copy may only be loaned once at a time"*. Because `Loan` depends on the **interface** (not the concrete implementation), the domain layer remains free of any infrastructure dependency.
+
+```
+domain layer              application layer
+┌───────────────────┐     ┌───────────────────────────┐
+│ CopyAvailability  │◄────│ CopyAvailabilityServiceImpl│
+│ Service (interface)│    │  uses LoanRepository       │
+└───────────────────┘     └───────────────────────────┘
+        ▲
+        │ depends on
+┌───────────────────┐
+│  Loan (aggregate) │
+└───────────────────┘
+```
+
+### 3.7 Repositories
 
 A **Repository** is an abstraction that makes domain objects feel like they live in an in-memory collection, hiding all the complexity of database operations.
 
@@ -135,7 +157,7 @@ bookRepository.findByIsbnValue("9780132350884")
 
 Repositories in DDD belong to the **domain layer** (as interfaces) but are implemented in the **infrastructure layer**.
 
-### 3.7 Use Cases (Application Services)
+### 3.8 Use Cases (Application Services)
 
 A **Use Case** describes a specific piece of business functionality from the user's perspective. Each use case is a single class with a single `execute()` method.
 
@@ -146,7 +168,7 @@ Examples:
 
 This makes the application's capabilities explicit and easy to discover just by looking at the class names.
 
-### 3.8 The Layered Architecture
+### 3.9 The Layered Architecture
 
 DDD is typically implemented with a layered architecture:
 
@@ -281,16 +303,18 @@ src/main/java/library/
 └── lending/                      ← BOUNDED CONTEXT: Loans
     ├── LendingController.java    ← POST /loans, POST /loans/{id}/return
     ├── application/
-    │   ├── RentBookUseCase.java  ← Creates a loan
-    │   └── ReturnBookUseCase.java← Closes a loan
+    │   ├── RentBookUseCase.java           ← Creates a loan
+    │   ├── ReturnBookUseCase.java         ← Closes a loan
+    │   └── CopyAvailabilityServiceImpl.java ← Queries LoanRepository to check availability
     └── domain/
-        ├── Loan.java             ← Aggregate root: loan lifecycle
-        ├── LoanId.java           ← Value object: UUID
-        ├── LoanCreated.java      ← Domain event (fired on loan creation)
-        ├── LoanClosed.java       ← Domain event (fired on loan return)
-        ├── LoanRepository.java   ← Find/save loans, check availability
-        ├── CopyId.java           ← Value object (mirror of catalog's CopyId)
-        └── UserId.java           ← Value object: user UUID
+        ├── Loan.java                      ← Aggregate root: loan lifecycle
+        ├── LoanId.java                    ← Value object: UUID
+        ├── LoanCreated.java               ← Domain event (fired on loan creation)
+        ├── LoanClosed.java                ← Domain event (fired on loan return)
+        ├── LoanRepository.java            ← Find/save loans
+        ├── CopyAvailabilityService.java   ← Domain service interface: is a copy available?
+        ├── CopyId.java                    ← Value object (mirror of catalog's CopyId)
+        └── UserId.java                    ← Value object: user UUID
 ```
 
 ### Why Is `CopyId` Duplicated?
@@ -377,7 +401,7 @@ A `Book` is the central aggregate root of the catalog context. It has:
 - A `title` string
 - An `Isbn` value object — this is the domain identity of the book
 
-**ISBN as domain identity.** In the real world, an ISBN is the globally recognised, unique identifier for a book title. Using it directly as the domain identity makes the model more honest — there is no artificial surrogate UUID, just the natural key that the domain already provides. The database still uses an internal `pk` column for physical storage, but that is an infrastructure detail hidden behind the repository.
+**ISBN as domain identity.** In the real world, an ISBN is the globally recognised, unique identifier for a book title. The database still uses an internal `pk` column for physical storage, to avoid using a string (ISBN) as a primary key.
 
 ### 7.2 The Isbn Value Object
 
@@ -463,16 +487,23 @@ The `Loan` constructor enforces this rule:
 > A loan can only be created if the copy is currently available.
 
 ```java
-public Loan(CopyId copyId, UserId userId, LoanRepository loanRepository) {
-    if (!loanRepository.isAvailable(copyId)) {
-        throw new IllegalArgumentException("Copy is not available");
-    }
+public Loan(CopyId copyId, UserId userId, CopyAvailabilityService availabilityService) {
+    Assert.isTrue(availabilityService.isAvailable(copyId), "copy is not available");
     // ... create the loan
     registerEvent(new LoanCreated(copyId));
 }
 ```
 
-Notice that the `Loan` entity itself checks availability via the repository. This might look unusual — usually entities don't reference repositories — but it's a deliberate design choice to keep the business rule *inside the aggregate* rather than scattering it across use case classes.
+The availability check is delegated to `CopyAvailabilityService` — a **domain service** interface defined in the domain layer. This keeps the business rule *inside the aggregate* while ensuring the `Loan` entity has no dependency on infrastructure. The concrete implementation (`CopyAvailabilityServiceImpl`) lives in the application layer and queries `LoanRepository`.
+
+```
+RentBookUseCase
+    │
+    ├── CopyAvailabilityServiceImpl.isAvailable(copyId)
+    │       └── LoanRepository.isAvailable(copyId)   ← infrastructure query
+    │
+    └── new Loan(copyId, userId, availabilityService) ← aggregate enforces the rule
+```
 
 ### 8.3 Optimistic Locking
 
@@ -751,17 +782,17 @@ The project uses **unit tests** at the domain layer — testing business rules i
 
 ### The Loan Test Uses Mocking
 
-The `LoanTest` uses **Mockito** to fake the `LoanRepository`:
+The `LoanTest` uses **Mockito** to fake the `CopyAvailabilityService`:
 
 ```java
-LoanRepository repo = mock(LoanRepository.class);
-when(repo.isAvailable(copyId)).thenReturn(false);
+CopyAvailabilityService availabilityService = mock(CopyAvailabilityService.class);
+when(availabilityService.isAvailable(copyId)).thenReturn(false);
 
 assertThrows(IllegalArgumentException.class,
-    () -> new Loan(copyId, userId, repo));
+    () -> new Loan(copyId, userId, availabilityService));
 ```
 
-This tests the business rule ("cannot create a loan if copy is unavailable") without needing a real database.
+This tests the business rule ("cannot create a loan if copy is unavailable") without needing a real database. Because `Loan` depends on the `CopyAvailabilityService` **interface** (not `LoanRepository`), the test never touches infrastructure at all.
 
 ### Testing Philosophy in DDD
 
@@ -781,6 +812,7 @@ In DDD, the most important tests are **domain tests** — they verify that busin
 | **Bounded Context** | A logical boundary in which domain terms have a specific meaning |
 | **DTO** | Data Transfer Object — a simple container for moving data between layers |
 | **Domain Event** | An immutable record of something that happened in the domain |
+| **Domain Service** | A stateless service that holds domain logic not belonging to any single entity; defined as an interface in the domain layer |
 | **Entity** | A domain object with a unique identity that persists over time |
 | **IoC** | Inversion of Control — Spring creates and wires your objects for you |
 | **ISBN** | International Standard Book Number — a unique identifier for books |

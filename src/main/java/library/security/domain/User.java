@@ -1,0 +1,43 @@
+package library.security.domain;
+
+import jakarta.persistence.*;
+
+import java.util.Set;
+import java.util.UUID;
+
+@Entity
+@Table(name = "library_user")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long pk;
+
+    @Column(nullable = false, unique = false)
+    private UUID userId = UUID.randomUUID();
+
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    @Column(nullable = false)
+    private String password;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "library_user_roles", joinColumns = @JoinColumn(name = "user_pk"))
+    @Enumerated(EnumType.STRING)
+    private Set<Role> roles;
+
+    protected User() {}
+
+    public User(String username, String password, Set<Role> roles) {
+        this.username = username;
+        this.password = password;
+        this.roles = roles;
+    }
+
+    public Long getPk() { return pk; }
+    public UUID getUserId() { return userId; }
+    public String getUsername() { return username; }
+    public String getPassword() { return password; }
+    public Set<Role> getRoles() { return roles; }
+}

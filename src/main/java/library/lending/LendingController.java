@@ -6,6 +6,7 @@ import library.lending.domain.CopyId;
 import library.lending.domain.LoanId;
 import library.lending.domain.UserId;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -24,8 +25,9 @@ public class LendingController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public void rent(@RequestBody RentRequest request) {
-        rentBook.execute(new CopyId(request.copyId()), new UserId(request.userId()));
+    public void rent(@RequestBody RentRequest request, Authentication auth) {
+        UUID userUuid = UUID.fromString((String) auth.getPrincipal());
+        rentBook.execute(new CopyId(request.copyId()), new UserId(userUuid));
     }
 
     @PostMapping("/{loanId}/return")
@@ -34,5 +36,5 @@ public class LendingController {
         returnBook.execute(new LoanId(loanId));
     }
 
-    record RentRequest(UUID copyId, UUID userId) {}
+    record RentRequest(UUID copyId) {}
 }

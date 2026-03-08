@@ -38,10 +38,10 @@ public class Loan extends AbstractAggregateRoot<Loan> {
     Loan() {
     }
 
-    public Loan(CopyId copyId, UserId userId, LoanRepository loanRepository) {
+    public Loan(CopyId copyId, UserId userId, CopyAvailabilityService availabilityService) {
         Assert.notNull(copyId, "copyId must not be null");
         Assert.notNull(userId, "userId must not be null");
-        Assert.isTrue(loanRepository.isAvailable(copyId), "copy with id = " + copyId + " is not available");
+        Assert.isTrue(availabilityService.isAvailable(copyId), "copy with id = " + copyId + " is not available");
         this.loanId = new LoanId();
         this.copyId = copyId;
         this.userId = userId;

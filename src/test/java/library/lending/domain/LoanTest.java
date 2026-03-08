@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 class LoanTest {
 
     @Mock
-    LoanRepository loanRepository;
+    CopyAvailabilityService availabilityService;
 
     private CopyId copyId;
     private UserId userId;
@@ -28,29 +28,29 @@ class LoanTest {
     @Test
     void rejectsNullCopyId() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new Loan(null, userId, loanRepository));
+                .isThrownBy(() -> new Loan(null, userId, availabilityService));
     }
 
     @Test
     void rejectsNullUserId() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new Loan(copyId, null, loanRepository));
+                .isThrownBy(() -> new Loan(copyId, null, availabilityService));
     }
 
     @Test
     void rejectsUnavailableCopy() {
-        when(loanRepository.isAvailable(copyId)).thenReturn(false);
+        when(availabilityService.isAvailable(copyId)).thenReturn(false);
 
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new Loan(copyId, userId, loanRepository))
+                .isThrownBy(() -> new Loan(copyId, userId, availabilityService))
                 .withMessageContaining("not available");
     }
 
     @Test
     void registersLoanCreatedEventOnCreation() {
-        when(loanRepository.isAvailable(copyId)).thenReturn(true);
+        when(availabilityService.isAvailable(copyId)).thenReturn(true);
 
-        var loan = new Loan(copyId, userId, loanRepository);
+        var loan = new Loan(copyId, userId, availabilityService);
 
         assertThat(loan.getDomainEvents())
                 .hasSize(1)
@@ -60,8 +60,8 @@ class LoanTest {
 
     @Test
     void registersLoanClosedEventOnReturn() {
-        when(loanRepository.isAvailable(copyId)).thenReturn(true);
-        var loan = new Loan(copyId, userId, loanRepository);
+        when(availabilityService.isAvailable(copyId)).thenReturn(true);
+        var loan = new Loan(copyId, userId, availabilityService);
 
         loan.returned();
 

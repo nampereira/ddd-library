@@ -46,8 +46,8 @@ public class Bootstrap implements ApplicationRunner {
             addBookToCatalog.execute(new Isbn("9780596007126")); // Head First Design Patterns
 
             bookRepository.findAll().forEach(book -> {
-                registerBookCopy.execute(book.getBookId(), new BarCode("BC-" + book.getIsbn().value() + "-1"));
-                registerBookCopy.execute(book.getBookId(), new BarCode("BC-" + book.getIsbn().value() + "-2"));
+                registerBookCopy.execute(book.getIsbn(), new BarCode("BC-" + book.getIsbn().value() + "-1"));
+                registerBookCopy.execute(book.getIsbn(), new BarCode("BC-" + book.getIsbn().value() + "-2"));
             });
         }
 

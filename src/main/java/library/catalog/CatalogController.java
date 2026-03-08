@@ -5,14 +5,11 @@ import library.catalog.application.ListBooksUseCase;
 import library.catalog.application.RegisterBookCopyUseCase;
 import library.catalog.domain.BarCode;
 import library.catalog.domain.Book;
-import library.catalog.domain.BookId;
 import library.catalog.domain.Isbn;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/catalog")
@@ -52,16 +49,16 @@ public class CatalogController {
     @PostMapping("/copies")
     @ResponseStatus(HttpStatus.CREATED)
     public void registerCopy(@RequestBody RegisterCopyRequest request) {
-        registerBookCopy.execute(new BookId(request.bookId()), new BarCode(request.barCode()));
+        registerBookCopy.execute(new Isbn(request.isbn()), new BarCode(request.barCode()));
     }
 
     record AddBookRequest(String isbn) {}
 
-    record RegisterCopyRequest(UUID bookId, String barCode) {}
+    record RegisterCopyRequest(String isbn, String barCode) {}
 
-    record BookResponse(UUID bookId, String title, String isbn) {
+    record BookResponse(String title, String isbn) {
         static BookResponse from(Book book) {
-            return new BookResponse(book.getBookId().id(), book.getTitle(), book.getIsbn().value());
+            return new BookResponse(book.getTitle(), book.getIsbn().value());
         }
     }
 }

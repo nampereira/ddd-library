@@ -16,12 +16,9 @@ public class Book {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long pk;
-    @Embedded
-    @AttributeOverride(name = "id", column = @Column(name = "book_id"))
-    private BookId bookId;
     private String title;
     @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "isbn"))
+    @AttributeOverride(name = "value", column = @Column(name = "isbn", unique = true))
     private Isbn isbn;
 
     Book() {
@@ -30,13 +27,8 @@ public class Book {
     public Book(String title, Isbn isbn) {
         Assert.notNull(title, "title must not be null");
         Assert.notNull(isbn, "isbn must not be null");
-        this.bookId = new BookId();
         this.title = title;
         this.isbn = isbn;
-    }
-
-    public BookId getBookId() {
-        return bookId;
     }
 
     public String getTitle() {
@@ -52,11 +44,11 @@ public class Book {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Book book = (Book) o;
-        return Objects.equals(bookId, book.bookId);
+        return Objects.equals(isbn, book.isbn);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(bookId);
+        return Objects.hashCode(isbn);
     }
 }

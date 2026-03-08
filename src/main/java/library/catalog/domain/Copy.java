@@ -18,8 +18,8 @@ public class Copy {
     @AttributeOverride(name = "id", column = @Column(name = "copy_id"))
     private CopyId copyId;
     @Embedded
-    @AttributeOverride(name = "id", column = @Column(name = "book_id"))
-    private BookId bookId;
+    @AttributeOverride(name = "value", column = @Column(name = "isbn"))
+    private Isbn isbn;
     @Embedded
     private BarCode barCode;
     private boolean available;
@@ -27,11 +27,11 @@ public class Copy {
     Copy() {
     }
 
-    public Copy(BookId bookId, BarCode barCode) {
-        Assert.notNull(bookId, "bookId must not be null");
+    public Copy(Isbn isbn, BarCode barCode) {
+        Assert.notNull(isbn, "isbn must not be null");
         Assert.notNull(barCode, "barCode must not be null");
         this.copyId = new CopyId();
-        this.bookId = bookId;
+        this.isbn = isbn;
         this.barCode = barCode;
         this.available = true;
     }

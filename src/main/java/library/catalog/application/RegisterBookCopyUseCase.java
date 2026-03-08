@@ -3,9 +3,9 @@ package library.catalog.application;
 import jakarta.validation.constraints.NotNull;
 import library.UseCase;
 import library.catalog.domain.BarCode;
-import library.catalog.domain.BookId;
 import library.catalog.domain.Copy;
 import library.catalog.domain.CopyRepository;
+import library.catalog.domain.Isbn;
 
 @UseCase
 public class RegisterBookCopyUseCase {
@@ -15,7 +15,7 @@ public class RegisterBookCopyUseCase {
         this.copyRepository = copyRepository;
     }
 
-    public void execute(@NotNull BookId bookId, @NotNull BarCode barCode) {
-        copyRepository.save(new Copy(bookId, barCode));
+    public void execute(@NotNull Isbn isbn, @NotNull BarCode barCode) {
+        copyRepository.save(new Copy(isbn, barCode));
     }
 }

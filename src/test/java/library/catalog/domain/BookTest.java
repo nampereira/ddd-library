@@ -14,7 +14,6 @@ class BookTest {
         var book = new Book("Clean Code", VALID_ISBN);
         assertThat(book.getTitle()).isEqualTo("Clean Code");
         assertThat(book.getIsbn()).isEqualTo(VALID_ISBN);
-        assertThat(book.getBookId()).isNotNull();
     }
 
     @Test

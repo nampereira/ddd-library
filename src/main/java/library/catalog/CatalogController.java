@@ -6,10 +6,15 @@ import library.catalog.application.RegisterBookCopyUseCase;
 import library.catalog.domain.BarCode;
 import library.catalog.domain.Book;
 import library.catalog.domain.Isbn;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RestController
 @RequestMapping("/catalog")
@@ -28,16 +33,23 @@ public class CatalogController {
     }
 
     @GetMapping("/books")
-    public List<BookResponse> getBooks(@RequestParam(required = false) String title,
-                                       @RequestParam(required = false) String isbn) {
+    public CollectionModel<EntityModel<BookResponse>> getBooks(@RequestParam(required = false) String title,
+                                                               @RequestParam(required = false) String isbn) {
+        List<Book> books;
         if (isbn != null) {
-            return listBooks.searchByIsbn(new Isbn(isbn))
-                    .map(BookResponse::from)
-                    .map(List::of)
-                    .orElse(List.of());
+            books = listBooks.searchByIsbn(new Isbn(isbn)).map(List::of).orElse(List.of());
+        } else {
+            books = title != null ? listBooks.searchByTitle(title) : listBooks.listAll();
         }
-        List<Book> books = title != null ? listBooks.searchByTitle(title) : listBooks.listAll();
-        return books.stream().map(BookResponse::from).toList();
+
+        List<EntityModel<BookResponse>> bookModels = books.stream()
+                .map(BookResponse::from)
+                .map(br -> EntityModel.of(br,
+                        linkTo(methodOn(CatalogController.class).getBooks(null, br.isbn())).withSelfRel()))
+                .toList();
+
+        return CollectionModel.of(bookModels,
+                linkTo(methodOn(CatalogController.class).getBooks(null, null)).withSelfRel());
     }
 
     @PostMapping("/books")

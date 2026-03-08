@@ -46,6 +46,7 @@ Think of it like the backend of a real library's digital system — the kind of 
 | **H2 Database** | A lightweight in-memory/file database for development |
 | **JWT (JSON Web Tokens)** | Stateless user authentication tokens |
 | **Gradle** | Build tool (compiles and packages the project) |
+| **Spring HATEOAS** | Adds hypermedia links to REST responses |
 | **Spring Modulith** | Enforces module boundaries within the application |
 | **JUnit 5 + Mockito** | Testing framework |
 | **Open Library API** | External API used to look up book information by ISBN |
@@ -251,6 +252,35 @@ public void rentBook(@RequestBody RentRequest request) {
 - `@PostMapping` — handles HTTP POST requests at `/loans`
 - `@RequestBody` — deserializes the JSON request body into a Java object
 - `@ResponseStatus` — sets the HTTP status code of the response
+
+### 4.7 HATEOAS — Hypermedia as the Engine of Application State
+
+**HATEOAS** is a REST maturity principle that makes APIs self-descriptive: instead of the client hard-coding URLs, the server includes links in responses that tell the client what it can do next.
+
+Spring HATEOAS provides the building blocks:
+
+| Type | Purpose |
+|---|---|
+| `EntityModel<T>` | Wraps a single resource and attaches links to it |
+| `CollectionModel<T>` | Wraps a collection of resources and attaches a collection-level link |
+| `linkTo` / `methodOn` | Helper methods that build links by referencing controller methods, so URLs are never hard-coded as strings |
+
+**In this project:**
+
+- `GET /catalog/books` — each book in the response is wrapped in an `EntityModel` with a `self` link pointing back to that book's ISBN search. The whole list is wrapped in a `CollectionModel` with its own `self` link.
+- `POST /loans` — the created loan response includes a `return` link pointing to `POST /loans/{loanId}/return`, so the client immediately knows how to return the book without needing to construct the URL itself.
+
+Example loan creation response:
+```json
+{
+  "loanId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+  "_links": {
+    "return": {
+      "href": "http://localhost:8080/loans/6ba7b810-9dad-11d1-80b4-00c04fd430c8/return"
+    }
+  }
+}
+```
 
 ---
 
@@ -655,13 +685,25 @@ List all books. Optionally filter by title or ISBN.
 
 **Response (200 OK):**
 ```json
-[
-  {
-    "title": "Clean Code",
-    "isbn": "9780132350884"
+{
+  "_embedded": {
+    "bookResponseList": [
+      {
+        "title": "Clean Code",
+        "isbn": "9780132350884",
+        "_links": {
+          "self": { "href": "http://localhost:8080/catalog/books?isbn=9780132350884" }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": { "href": "http://localhost:8080/catalog/books" }
   }
-]
+}
 ```
+
+Each book is wrapped in an `EntityModel` with a `self` link, and the collection is wrapped in a `CollectionModel` with its own `self` link (Spring HATEOAS HAL format).
 
 *No authentication required.*
 
@@ -712,7 +754,19 @@ Borrow a copy of a book.
 }
 ```
 
-**Response:** `201 Created`
+**Response (201 Created):**
+```json
+{
+  "loanId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+  "_links": {
+    "return": {
+      "href": "http://localhost:8080/loans/6ba7b810-9dad-11d1-80b4-00c04fd430c8/return"
+    }
+  }
+}
+```
+
+The response includes a `return` hypermedia link so the client knows immediately how to return the book.
 
 *Requires PATRON or ADMIN role. The user is identified from the JWT token.*
 
@@ -814,6 +868,7 @@ In DDD, the most important tests are **domain tests** — they verify that busin
 | **Domain Event** | An immutable record of something that happened in the domain |
 | **Domain Service** | A stateless service that holds domain logic not belonging to any single entity; defined as an interface in the domain layer |
 | **Entity** | A domain object with a unique identity that persists over time |
+| **HATEOAS** | Hypermedia as the Engine of Application State — REST responses include links describing available next actions |
 | **IoC** | Inversion of Control — Spring creates and wires your objects for you |
 | **ISBN** | International Standard Book Number — a unique identifier for books |
 | **JPA** | Java Persistence API — standard for mapping Java objects to database tables |

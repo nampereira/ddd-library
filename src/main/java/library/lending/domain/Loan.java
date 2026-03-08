@@ -50,6 +50,10 @@ public class Loan extends AbstractAggregateRoot<Loan> {
         this.registerEvent(new LoanCreated(this.copyId));
     }
 
+    public LoanId getLoanId() {
+        return loanId;
+    }
+
     public java.util.Collection<Object> getDomainEvents() {
         return domainEvents();
     }

@@ -17,7 +17,7 @@ public class RentBookUseCase {
         this.availabilityService = availabilityService;
     }
 
-    public void execute(CopyId copyId, UserId userId) {
-        loanRepository.save(new Loan(copyId, userId, availabilityService));
+    public Loan execute(CopyId copyId, UserId userId) {
+        return loanRepository.save(new Loan(copyId, userId, availabilityService));
     }
 }

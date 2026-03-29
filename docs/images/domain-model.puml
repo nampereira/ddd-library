@@ -1,0 +1,97 @@
+@startuml
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+}
+skinparam stereotype {
+    ABackgroundColor #DFF0D8
+    CBackgroundColor #D9EDF7
+    EBackgroundColor #FCF8E3
+}
+
+title DDD Library — Domain Model
+
+package "book" #DDFFFF {
+
+    entity Book <<aggregate root>> {
+    }
+
+    class "<<value object>>\n<<id>>\nIsbn" as Isbn {
+    }
+
+    class BookTitle <<value object>> {
+    }
+
+    entity BookAuthor <<entity>> {
+    }
+
+    class "<<value object>>\n<<id>>\nContactEmail" as ContactEmail {
+    }
+
+    Book "1" *--> "1" Isbn
+    Book "1" *--> "1" BookTitle
+    Book "1" --> "N" BookAuthor: authored by
+    BookAuthor "1" *--> "1" ContactEmail
+}
+
+package "copy" #DDEEFF {
+
+    entity BookCopy <<entity>> {
+    }
+
+    class "<<value object>>\n<<id>>\nBarCode" as BarCode {
+    }
+
+    enum CopyType {
+        CIRCULATING
+        REFERENCE
+    }
+
+    BookCopy "1" *--> "1" BarCode
+    BarCode ..> CopyType
+
+}
+
+package "loan" #DDEEDD {
+    entity Loan <<aggregate root>> {
+        returned()
+    }
+    class DateTime {
+    }
+    class  "<<value object>>\n<<id>>\nLoanId" as LoanId {
+    }
+
+    class UserId <<value object>> {
+    }
+
+    class LoanCreated <<domain event>> {
+    }
+
+    class LoanClosed <<domain event>> {
+    }
+
+    class LoanBookService <<domain service>> {
+        + loan(BarCode, UserId) : Loan
+    }
+
+    Loan "1" *--> "1" LoanId
+    Loan "1" *--> "1" UserId
+    Loan "1" *--> "1" DateTime: createdAt
+    Loan "1" *--> "1" DateTime: expectedReturnDate
+    Loan "1" *--> "1" DateTime: returnedAt
+    Loan ..> LoanCreated : publishes on create
+    Loan ..> LoanClosed  : publishes on return
+    LoanBookService .. Loan: creates
+}
+
+copy.BookCopy <-- Loan : loaned (ref BarCode)
+Book <-- copy.BookCopy  : copy of (ref Isbn)
+
+note top of BookAuthor
+  Book author is always created 
+and deleted through Book; 
+no AuthorRepository.
+end note
+@enduml

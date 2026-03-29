@@ -1,0 +1,85 @@
+@startuml
+title Loan a Book: Architecture — Class Diagram
+
+package "Lending" <<rectangle>> {
+  class Loan <<Aggregate Root>> {
+    - LoanId loanId
+    - BarCode barCode
+    - UserId userId
+    - LocalDate expectedReturnDate
+    - LocalDateTime returnedAt
+    - String activeBarCode
+    - Long version
+    + Loan(barCode, userId)
+    + returned()
+  }
+
+  class LoanCreated <<Domain Event>> {
+    + BarCode barCode
+  }
+
+  class LoanClosed <<Domain Event>> {
+    + BarCode barCode
+  }
+
+  interface LoanRepository {
+    + boolean isAvailable(BarCode)
+    + Optional<Loan> findByLoanId(LoanId)
+    + Loan save(Loan)
+  }
+
+  class LoanBookService <<Domain Service>> {
+    + Loan loan(BarCode, UserId)
+  }
+
+  class LoanBookUseCase <<@UseCase>> {
+    + Loan execute(String barCode, UserId)
+  }
+
+  class ReturnBookUseCase <<@UseCase>> {
+    + void execute(LoanId)
+  }
+
+  class LoanNotificationService <<@Service>> {
+    - RestClient restClient
+    - String webhookUrl
+    + onLoanCreated(LoanCreated)
+    + onLoanClosed(LoanClosed)
+  }
+
+  Loan ..> LoanCreated : registers >
+  Loan ..> LoanClosed : registers >
+  LoanBookService ..> LoanRepository : isAvailable()
+  LoanBookService ..> Loan : creates >
+  LoanBookUseCase ..> LoanBookService : delegates to >
+  LoanBookUseCase ..> LoanRepository : save()
+  ReturnBookUseCase ..> LoanRepository : findByLoanId()\nsave()
+  LoanNotificationService ..> LoanCreated : @TransactionalEventListener\n(AFTER_COMMIT)
+  LoanNotificationService ..> LoanClosed : @TransactionalEventListener\n(AFTER_COMMIT)
+}
+
+package "Catalog" <<rectangle>> {
+  class BookCopy <<Aggregate Root>> {
+    - Isbn isbn
+    - BarCode barCode
+    + getBarCode()
+  }
+
+  interface BookCopyRepository {
+    + Optional<BookCopy> findByBarCode(BarCode)
+    + BookCopy save(BookCopy)
+  }
+
+  LoanBookUseCase ..> BookCopyRepository : findByBarCode()
+}
+
+package "RequestBin (Cloud Service)" <<Cloud>> {
+  class "Webhook" as Webhook
+}
+
+LoanNotificationService ..> Webhook : POST { event, barCode, timestamp }\nnotifications.webhook-url
+
+note "Not part of this use case" as NotifServiceNote
+LoanNotificationService .. NotifServiceNote
+
+@enduml

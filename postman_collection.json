@@ -1,0 +1,1241 @@
+{
+  "info": {
+    "name": "DDD Library API",
+    "description": "Comprehensive test collection for the DDD Library Spring Boot application.\n\nModules covered:\n- Authentication (JWT)\n- Book Catalog management\n- Book Lending (rent/return)\n\nDefault users (seeded by Bootstrap.java):\n- admin / admin123 → ADMIN role\n- librarian / lib123 → LIBRARIAN role\n- patron / pat123 → PATRON role\n\nRun order: Auth → Catalog → Lending",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "librarianToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "patronToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testIsbn",
+      "value": "9780132350884",
+      "type": "string",
+      "description": "ISBN for 'Clean Code' by Robert C. Martin"
+    },
+    {
+      "key": "testBarCode",
+      "value": "BC-9780132350884-001",
+      "type": "string"
+    },
+    {
+      "key": "testAuthorEmail",
+      "value": "martin@example.com",
+      "type": "string",
+      "description": "Contact email (domain identity) of the author used in catalog tests"
+    },
+    {
+      "key": "activeLoanId",
+      "value": "",
+      "type": "string",
+      "description": "Set dynamically after renting a book"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints. Run these first to populate tokens used by subsequent requests.",
+      "item": [
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token field', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('token');",
+                  "    pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('Token is a valid JWT (three base64 parts)', function () {",
+                  "    const token = pm.response.json().token;",
+                  "    const parts = token.split('.');",
+                  "    pm.expect(parts).to.have.lengthOf(3);",
+                  "});",
+                  "",
+                  "// Save token for use by other requests",
+                  "const token = pm.response.json().token;",
+                  "pm.collectionVariables.set('adminToken', token);",
+                  "console.log('Admin token saved.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login as Librarian",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token field', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('token');",
+                  "    pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "const token = pm.response.json().token;",
+                  "pm.collectionVariables.set('librarianToken', token);",
+                  "console.log('Librarian token saved.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"librarian\",\n  \"password\": \"lib123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login as Patron",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token field', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('token');",
+                  "    pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "const token = pm.response.json().token;",
+                  "pm.collectionVariables.set('patronToken', token);",
+                  "console.log('Patron token saved.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"patron\",\n  \"password\": \"pat123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Wrong Password (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('No token returned', function () {",
+                  "    // Body should not contain a valid token",
+                  "    try {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body.token).to.be.undefined;",
+                  "    } catch (e) {",
+                  "        // Non-JSON response is also acceptable for 401",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Missing Username (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "description": "Book catalog management endpoints.",
+      "item": [
+        {
+          "name": "Get All Books (public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Content-Type is JSON', function () {",
+                  "    pm.response.to.have.header('Content-Type');",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+                  "});",
+                  "",
+                  "pm.test('Response has _links (HATEOAS)', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('_links');",
+                  "    pm.expect(body._links).to.have.property('self');",
+                  "});",
+                  "",
+                  "pm.test('No auth required for GET /catalog/books', function () {",
+                  "    pm.response.to.not.have.status(401);",
+                  "    pm.response.to.not.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Search Books by Title",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has _links (HATEOAS)', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('_links');",
+                  "});",
+                  "",
+                  "pm.test('Self link points to /catalog/books', function () {",
+                  "    const body = pm.response.json();",
+                  "    const selfHref = body._links.self.href;",
+                  "    pm.expect(selfHref).to.include('/catalog/books');",
+                  "});",
+                  "",
+                  "pm.test('If results exist, each book has title and isbn', function () {",
+                  "    const body = pm.response.json();",
+                  "    if (body._embedded && body._embedded.bookResponseList) {",
+                  "        body._embedded.bookResponseList.forEach(function (book) {",
+                  "            pm.expect(book).to.have.property('title');",
+                  "            pm.expect(book).to.have.property('isbn');",
+                  "            pm.expect(book._links).to.have.property('self');",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books?title=Clean",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"],
+              "query": [{ "key": "title", "value": "Clean" }]
+            }
+          }
+        },
+        {
+          "name": "Search Books by ISBN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has _links (HATEOAS)', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('_links');",
+                  "});",
+                  "",
+                  "pm.test('If book found, isbn matches query', function () {",
+                  "    const body = pm.response.json();",
+                  "    if (body._embedded && body._embedded.bookResponseList) {",
+                  "        const book = body._embedded.bookResponseList[0];",
+                  "        pm.expect(book.isbn).to.eql(pm.collectionVariables.get('testIsbn'));",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books?isbn={{testIsbn}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"],
+              "query": [{ "key": "isbn", "value": "{{testIsbn}}" }]
+            }
+          }
+        },
+        {
+          "name": "Add Book (as Librarian)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response body is empty', function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{testIsbn}}\",\n  \"authors\": [\n    { \"name\": \"Robert C. Martin\", \"contactEmail\": \"{{testAuthorEmail}}\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Add Book - Duplicate ISBN (expect 500/conflict)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not a success status (duplicate ISBN should be rejected)', function () {",
+                  "    pm.expect(pm.response.code).to.be.at.least(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{testIsbn}}\",\n  \"authors\": [\n    { \"name\": \"Robert C. Martin\", \"contactEmail\": \"{{testAuthorEmail}}\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Add Book - Unauthorized (Patron role, expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"9780201633610\",\n  \"authors\": [\n    { \"name\": \"Erich Gamma\", \"contactEmail\": \"gamma@example.com\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Add Book - No Auth (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"9780201633610\",\n  \"authors\": [\n    { \"name\": \"Erich Gamma\", \"contactEmail\": \"gamma@example.com\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Add Book - Invalid ISBN (expect 400/500)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not a 2xx success (invalid ISBN should be rejected)', function () {",
+                  "    pm.expect(pm.response.code).to.be.at.least(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"INVALID-ISBN\",\n  \"authors\": [\n    { \"name\": \"Test Author\", \"contactEmail\": \"test@example.com\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Register Copy (as Librarian)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response body is empty', function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});",
+                  "",
+                  "// Now fetch the copy ID so the lending tests can use it",
+                  "console.log('Copy registered for ISBN ' + pm.collectionVariables.get('testIsbn'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{testIsbn}}\",\n  \"barCode\": \"{{testBarCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/copies",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "copies"]
+            }
+          }
+        },
+        {
+          "name": "Register Copy - Unauthorized (Patron, expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{testIsbn}}\",\n  \"barCode\": \"BC-UNAUTHORISED-001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/copies",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "copies"]
+            }
+          }
+        },
+        {
+          "name": "Register Copy - No Auth (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"{{testIsbn}}\",\n  \"barCode\": \"BC-NOAUTH-001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/copies",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "copies"]
+            }
+          }
+        },
+        {
+          "name": "Edit Author Bio (as Librarian)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test('Response body is empty', function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Robert C. Martin (Uncle Bob) is a software engineer, author, and co-author of the Agile Manifesto.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/authors/{{testAuthorEmail}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "authors", "{{testAuthorEmail}}"]
+            },
+            "description": "Updates the bio of an author identified by their contactEmail. The contactEmail is the domain identity returned in GET /catalog/books author objects."
+          }
+        },
+        {
+          "name": "Edit Author Bio - Clear Bio (as Librarian)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/authors/{{testAuthorEmail}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "authors", "{{testAuthorEmail}}"]
+            },
+            "description": "Passing null bio clears the author's bio."
+          }
+        },
+        {
+          "name": "Edit Author Bio - Unauthorized (Patron, expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Should not be allowed.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/authors/{{testAuthorEmail}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "authors", "{{testAuthorEmail}}"]
+            }
+          }
+        },
+        {
+          "name": "Edit Author Bio - No Auth (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Should not be allowed.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/authors/{{testAuthorEmail}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "authors", "{{testAuthorEmail}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Books After Adding - Verify Catalog Updated",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Catalog contains at least one book', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body._embedded).to.exist;",
+                  "    pm.expect(body._embedded.bookResponseList).to.be.an('array').with.length.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Added book is present in catalog', function () {",
+                  "    const body = pm.response.json();",
+                  "    const books = body._embedded.bookResponseList;",
+                  "    const found = books.find(b => b.isbn === pm.collectionVariables.get('testIsbn'));",
+                  "    pm.expect(found, 'Book with test ISBN should be in catalog').to.not.be.undefined;",
+                  "});",
+                  "",
+                  "// Save copyId from the ISBN search link for use in lending tests",
+                  "// The copy ID must be obtained from the H2 console or by a separate query.",
+                  "// We store the ISBN-based self link for reference.",
+                  "const body = pm.response.json();",
+                  "if (body._embedded && body._embedded.bookResponseList) {",
+                  "    const book = body._embedded.bookResponseList.find(",
+                  "        b => b.isbn === pm.collectionVariables.get('testIsbn')",
+                  "    );",
+                  "    if (book) {",
+                  "        console.log('Found book:', JSON.stringify(book));",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            }
+          }
+        },
+        {
+          "name": "Add Second Book (as Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"9780201633610\",\n  \"authors\": [\n    { \"name\": \"Erich Gamma\", \"contactEmail\": \"gamma@example.com\" },\n    { \"name\": \"Richard Helm\", \"contactEmail\": \"helm@example.com\" },\n    { \"name\": \"Ralph Johnson\", \"contactEmail\": \"johnson@example.com\" },\n    { \"name\": \"John Vlissides\", \"contactEmail\": \"vlissides@example.com\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "books"]
+            },
+            "description": "ISBN 9780201633610 = 'Design Patterns' (GoF). Admin role can also add books."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lending",
+      "description": "Book lending endpoints (rent and return).\n\nPrerequisite: Run Auth and Catalog folders first. The `testBarCode` variable (default: BC-9780132350884-001) must match a registered copy. POST /loans accepts a `barCode` string, not a UUID.",
+      "item": [
+        {
+          "name": "Rent Book (as Patron)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response contains loanId', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('loanId');",
+                  "    pm.expect(body.loanId).to.be.a('string').and.match(",
+                  "        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,",
+                  "        'loanId should be a UUID'",
+                  "    );",
+                  "});",
+                  "",
+                  "pm.test('Response contains HATEOAS return link', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body._links).to.exist;",
+                  "    pm.expect(body._links).to.have.property('return');",
+                  "    pm.expect(body._links.return.href).to.include('/loans/');",
+                  "    pm.expect(body._links.return.href).to.include('/return');",
+                  "});",
+                  "",
+                  "// Save loanId for the return test",
+                  "const loanId = pm.response.json().loanId;",
+                  "pm.collectionVariables.set('activeLoanId', loanId);",
+                  "console.log('Loan created, ID saved:', loanId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barCode\": \"{{testBarCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans"]
+            },
+            "description": "Uses `testBarCode` collection variable. The copy must exist and be available (registered via POST /catalog/copies)."
+          }
+        },
+        {
+          "name": "Rent Same Copy Again (expect 500 - copy unavailable)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not a 2xx (copy should be unavailable)', function () {",
+                  "    pm.expect(pm.response.code).to.be.at.least(400);",
+                  "});",
+                  "",
+                  "console.log('Re-renting same copy correctly rejected with status:', pm.response.code);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barCode\": \"{{testBarCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans"]
+            }
+          }
+        },
+        {
+          "name": "Rent Book - No Auth (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barCode\": \"{{testBarCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans"]
+            }
+          }
+        },
+        {
+          "name": "Rent Book - Librarian Role (expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 Forbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{librarianToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barCode\": \"{{testBarCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans"]
+            }
+          }
+        },
+        {
+          "name": "Return Book (as Patron)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test('Response body is empty', function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});",
+                  "",
+                  "console.log('Loan returned successfully:', pm.collectionVariables.get('activeLoanId'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/{{activeLoanId}}/return",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "{{activeLoanId}}", "return"]
+            },
+            "description": "Uses `activeLoanId` saved by 'Rent Book' request."
+          }
+        },
+        {
+          "name": "Return Same Loan Again (expect error)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not a 2xx (loan already closed)', function () {",
+                  "    pm.expect(pm.response.code).to.be.at.least(400);",
+                  "});",
+                  "",
+                  "console.log('Re-returning already-returned loan correctly rejected with status:', pm.response.code);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/{{activeLoanId}}/return",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "{{activeLoanId}}", "return"]
+            }
+          }
+        },
+        {
+          "name": "Return Non-Existent Loan (expect 500/404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not a 2xx (loan does not exist)', function () {",
+                  "    pm.expect(pm.response.code).to.be.at.least(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patronToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/00000000-0000-0000-0000-000000000000/return",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "00000000-0000-0000-0000-000000000000", "return"]
+            }
+          }
+        },
+        {
+          "name": "Return Book - No Auth (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/{{activeLoanId}}/return",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "{{activeLoanId}}", "return"]
+            }
+          }
+        },
+        {
+          "name": "Rent Book (as Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created - Admin can rent books', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has loanId and return link', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.loanId).to.exist;",
+                  "    pm.expect(body._links.return.href).to.include('/return');",
+                  "});",
+                  "",
+                  "// Save for subsequent return test",
+                  "pm.collectionVariables.set('activeLoanId', pm.response.json().loanId);",
+                  "console.log('Admin loan created, ID saved:', pm.response.json().loanId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barCode\": \"{{testBarCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans"]
+            },
+            "description": "Admin has PATRON-equivalent permissions and can also rent books."
+          }
+        },
+        {
+          "name": "Return Book (as Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/loans/{{activeLoanId}}/return",
+              "host": ["{{baseUrl}}"],
+              "path": ["loans", "{{activeLoanId}}", "return"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

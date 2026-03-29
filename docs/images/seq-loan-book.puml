@@ -1,0 +1,49 @@
+@startuml
+title Loan a Book — POST /loans
+
+actor Patron
+participant LendingController
+participant LoanBookUseCase <<@UseCase>>
+participant BookCopyRepository
+participant LoanBookService <<Domain Service>>
+participant LoanRepository
+participant LoanNotificationService <<@Service>>
+participant Webhook <<External>>
+
+Patron -> LendingController : POST /loans\n{ barCode: "BC-0001" }
+activate LendingController
+
+LendingController -> LendingController : extract PatronId from JWT
+LendingController -> LoanBookUseCase : execute(barCode, patronId)
+activate LoanBookUseCase
+
+LoanBookUseCase -> BookCopyRepository : findByBarCode(BarCode("BC-0001"))
+BookCopyRepository --> LoanBookUseCase : BookCopy
+
+LoanBookUseCase -> LoanBookService : loan(barCode, patronId)
+activate LoanBookService
+
+LoanBookService -> LoanRepository : isAvailable(barCode)
+LoanRepository --> LoanBookService : true
+
+LoanBookService -> LoanBookService : new Loan(barCode, patronId)\n[registers LoanCreated event]
+LoanBookService --> LoanBookUseCase : loan (unsaved)
+deactivate LoanBookService
+
+LoanBookUseCase -> LoanRepository : save(loan)
+LoanRepository --> LoanBookUseCase : loan (persisted)
+deactivate LoanBookUseCase
+
+note over LoanBookUseCase : @Transactional commits\nSpring fires AFTER_COMMIT events
+
+LendingController --> Patron : 201 Created\n{ loanId, _links.return }
+deactivate LendingController
+
+LendingController -> LoanNotificationService : handle(LoanCreated)\n[AFTER_COMMIT]
+activate LoanNotificationService
+LoanNotificationService -> Webhook : POST /\n{ "event": "LoanCreated",\n  "barCode": "BC-0001",\n  "timestamp": "..." }
+note right: notifications.webhook-url\nno-op if blank
+Webhook --> LoanNotificationService : 200 OK
+deactivate LoanNotificationService
+
+@enduml

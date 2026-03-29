@@ -1,0 +1,21 @@
+package library.lending.domain;
+
+import org.springframework.util.Assert;
+
+import java.util.UUID;
+
+/**
+ * Value object representing the unique identity of a library patron within the lending
+ * functional area.
+ *
+ * <p>The UUID is extracted from the JWT token by {@link library.lending.LendingController}
+ * and passed through to the {@link Loan} to record who borrowed a copy. Being a value object,
+ * two {@code PatronId} instances that hold the same UUID are considered equal.</p>
+ */
+public record PatronId(UUID id) {
+
+    /** Compact constructor — rejects a {@code null} UUID. */
+    public PatronId {
+        Assert.notNull(id, "id must not be null");
+    }
+}

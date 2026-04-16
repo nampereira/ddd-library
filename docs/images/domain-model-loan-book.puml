@@ -1,0 +1,47 @@
+@startuml
+title Loan a Book: Domain Model (Overview, simplified)
+
+package "copy" <<rectangle>> {
+
+    entity BookCopy <<entity>> {
+        ' no available flag — availability is queried from LoanRepository
+    }
+
+    class "<<value object>>\n<<id>>\nBarCode" as BarCode {
+    }
+
+ 
+    BookCopy "1" *--> "1" BarCode
+}
+
+package "loan" <<rectangle>> {
+    entity Loan <<aggregate root>> {
+        returned()
+    }
+
+    class DateTime {
+    }
+    class  "<<value object>>\n<<id>>\nLoanId" as LoanId {
+    }
+
+    class PatronId <<value object>> {
+    }
+
+    class LoanCreated <<domain event>> {
+    }
+
+    class LoanClosed <<domain event>> {
+    }
+
+    Loan "1" *--> "1" LoanId
+    Loan "1" *--> "1" PatronId
+    Loan "1" *--> "1" DateTime: createdAt
+    Loan "1" *--> "1" DateTime: expectedReturnDate
+    Loan "1" *--> "1" DateTime: returnedAt
+    Loan ..> LoanCreated : publishes on create
+    Loan ..> LoanClosed  : publishes on return
+}
+
+copy.BookCopy <-- Loan : loans (ref Barcode)
+
+@enduml

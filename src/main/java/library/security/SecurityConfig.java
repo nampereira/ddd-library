@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(GET,  "/catalog/books").permitAll();
                     auth.requestMatchers(POST, "/auth/login").permitAll();
+                    auth.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();
                     if (h2ConsoleEnabled) {
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
